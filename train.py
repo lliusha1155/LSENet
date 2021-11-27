@@ -18,7 +18,7 @@ from Model.LSENet import head
 NCLASSES = 12
 HEIGHT = 352
 WIDTH = 352
-down_sample_size = 11
+down_sample_size = 8
 batch_size = 4
 
 def month2season(num):
