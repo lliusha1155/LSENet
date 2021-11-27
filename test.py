@@ -40,7 +40,7 @@ def month2season(num):
 NCLASSES = 12
 HEIGHT = 352
 WIDTH = 352
-down_sample_size = 11
+down_sample_size = 8
 batch_size = 1
 
 # get the model
@@ -51,7 +51,7 @@ o = head(feats,NCLASSES, HEIGHT, WIDTH, down_sample_size,batch_size)
 model = Model(inputs=[img_input,season_input],outputs= o)
 
 #********************************************************************#
-model.load_weights(log_dir + '71_25.h5')
+model.load_weights(log_dir + '71.75.h5')
 #********************************************************************#
 
 #get the test set
