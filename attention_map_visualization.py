@@ -15,6 +15,7 @@ import random
 import matplotlib.pyplot as plt
 from Model.LSENet import backbone
 from Model.LSENet import head
+import matplotlib
 
 log_dir = 'logs/'
 class_colors = [[0,0,0],[255,0,0],[255,255,255],[255,102,0],[0,255,255],[255,255,0],[153,255,0] # 分别为 黑色， 红色，白红，橙色，
@@ -23,10 +24,11 @@ class_colors = [[0,0,0],[255,0,0],[255,255,255],[255,102,0],[0,255,255],[255,255
 NCLASSES = 12
 HEIGHT = 352
 WIDTH = 352
-down_sample_size = 11
+down_sample_size = 8
 batch_size = 1
+save_path = 'attention_map'
 
-# get model
+# get the model
 img_input = Input(shape=(HEIGHT,WIDTH , 3 ))
 season_input = Input(shape=(12,))
 feats = backbone(img_input,season_input,HEIGHT,WIDTH)
@@ -34,7 +36,7 @@ o = head(feats,NCLASSES, HEIGHT, WIDTH, down_sample_size,batch_size)
 model = Model(inputs=[img_input,season_input],outputs= o)
 
 #********************************************************************#
-model.load_weights(log_dir + '71_25.h5')
+model.load_weights(log_dir + '71.75.h5')
 #********************************************************************#
 
 # source image
@@ -42,7 +44,7 @@ model.load_weights(log_dir + '71_25.h5')
 jpg = '20180114.png'
 
 # attention_map_class
-class_pick = 0
+class_pick = 1
 
 img = Image.open("dataset/trainX/"+jpg[:12])
 old_img = copy.deepcopy(img)
@@ -150,35 +152,61 @@ for c in range(NCLASSES):
 
 edge = edge_labels[:,:,class_pick]
 
-save_path = 'attention_map'
-
-
 if class_pick!= 0:
+    edge = edge_labels[:,:,class_pick]
+
     a = np.argwhere(edge==1)
     x = a[:,0]
     y = a[:,1]
-    #plot
-    fig = plt.figure(figsize=(5.0,6.85))      #size
-    plt.xticks([])  # Remove the x-axis values
-    plt.yticks([])  # Remove the y-axis values
-    #attention
-    con = plt.pcolormesh(attention[:,:,class_pick], cmap = 'coolwarm')
+
+    fig = plt.figure(figsize=(5.2,6.8)) 
+    ax = fig.add_subplot(1,1,1)
+
+    new_ticks_x = [9,89,169,249]
+    ax.set_xticklabels(['118.5°E','122.5°E','126.5°E','130.5°E'])
+    plt.xticks(new_ticks_x)
+
+    new_ticks_y = [10,50,90,130,170,210,250,290,330]
+    ax.set_yticklabels(['39.5°N','37.5°N','35.5°N','33.5°N','31.0°N','29.5°N','27.5°N','25.5°N','23.5°N'])
+    plt.yticks(new_ticks_y)
+
+    plt.yticks(fontproperties = 'Times New Roman', size = 11)
+    plt.xticks(fontproperties = 'Times New Roman', size = 11)
+
+    #plot attention map
+    con = plt.pcolormesh(attention[:,:,class_pick],norm=norm, cmap = 'coolwarm')
     ax = plt.gca()
-    plt.scatter(y, x, s=2, c='g')
+    plt.scatter(y, x, s=1.8, c='k')
     ax.invert_yaxis()
-    cbar = plt.colorbar(con,orientation='horizontal', fraction=0.05, pad=0.03)
     plt.savefig(save_path +'/'+ jpg[:8] + '_class' +str(class_pick) + '.png', dpi = 300, bbox_inches = 'tight',pad_inches = 0)
 else:
     edge = edge_img
     a = np.argwhere(edge!=0)
     x = a[:,0]
     y = a[:,1]
-    fig = plt.figure(figsize=(5.0,6.85))      
-    plt.xticks([])  
-    plt.yticks([])  
-    con = plt.pcolormesh(attention[:,:,class_pick], cmap = 'coolwarm')
+    norm = matplotlib.colors.Normalize(vmin=0, vmax=1)
+    fig = plt.figure(figsize=(5.2,6.8))
+    ax = fig.add_subplot(1,1,1)
+    new_ticks_x = [9,89,169,249]
+    ax.set_xticklabels(['118.5°E','122.5°E','126.5°E','130.5°E'])
+    plt.xticks(new_ticks_x)
+    new_ticks_y = [10,50,90,130,170,210,250,290,330]
+    ax.set_yticklabels(['39.5°N','37.5°N','35.5°N','33.5°N','31.0°N','29.5°N','27.5°N','25.5°N','23.5°N'])
+    plt.yticks(new_ticks_y)
+    plt.yticks(fontproperties = 'Times New Roman', size = 11)
+    plt.xticks(fontproperties = 'Times New Roman', size = 11)
+
+    #plot attention map
+    con = plt.pcolormesh(attention[:,:,class_pick],norm=norm, cmap = 'coolwarm')
     ax = plt.gca()
-    plt.scatter(y, x, s=2, c='g')
+    plt.scatter(y, x, s=1.8, c='k')
     ax.invert_yaxis()
-    cbar = plt.colorbar(con,orientation='horizontal', fraction=0.05, pad=0.03)
+
     plt.savefig(save_path +'/'+ jpg[:8] + '_class' +str(class_pick) + '.png', dpi = 300, bbox_inches = 'tight',pad_inches = 0)
+    
+    #color bar plot
+    #cbar = plt.colorbar(con,fraction=0.06, pad=0.06)
+    #for l in cbar.ax.yaxis.get_ticklabels():
+     #   l.set_family('Times New Roman')
+   # cbar.ax.tick_params(labelsize=12)  
+    #plt.savefig(save_path +'/'+ jpg[:8] + '_class_color_bar' +str(class_pick) + '.png', dpi = 300, bbox_inches = 'tight',pad_inches = 0)
