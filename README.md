@@ -2,6 +2,7 @@
 
 code and dataset on Chinese Offshore has been uploaded. 
 dataset on Gulf of Mexico is coming soon.
+(Due to the limitation of the number of GitHub files, we have uploaded the data set in ZIP format at releases)
 
 Environment: tensorflow 1.15, keras 2.3.1
 
