@@ -1,10 +1,12 @@
 # The official implementation of "LSENet: Location and Seasonality Enhanced Network for Multi-Class Ocean Front Detection"
+Environment: tensorflow 1.15, keras 2.3.1
+
+Attention:
 
 Code and dataset on Chinese Offshore has been uploaded.
-
 Dataset on Gulf of Mexico is coming soon.
 
-Environment: tensorflow 1.15, keras 2.3.1
+
 
 Overview
 ![guo2](https://user-images.githubusercontent.com/55483751/143551767-2e60b8d5-b349-494c-9f38-44fd8043621c.png)
