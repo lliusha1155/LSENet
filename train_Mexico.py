@@ -18,7 +18,7 @@ from Model.LSENet import head
 NCLASSES = 6
 HEIGHT = 384
 WIDTH = 384
-down_sample_size = 32
+down_sample_size = 24
 batch_size = 4
 
 def month2season(num):
@@ -36,7 +36,6 @@ def month2season(num):
     return season_label
 
 def generate_train_arrays_from_file(lines,batch_size):
-    # 获取总长度
     n = len(lines)
     i = 0
     while 1:
@@ -65,7 +64,7 @@ def generate_train_arrays_from_file(lines,batch_size):
             mask = np.array(mask)
             
             img = PhotometricDistort(img)
-            img, mask = RandomCrop(img,mask)
+            img, mask = RandomCrop(img,mask,h = HEIGHT, w = WIDTH)
             img, masks = RandomFlipImage(img,mask)
             image = img/255
             X_train.append(image)
@@ -80,7 +79,6 @@ def generate_train_arrays_from_file(lines,batch_size):
         yield ([np.array(X_train),np.array(season_X)],np.array(Y_train))        
 
 def generate_valid_arrays_from_file(lines,batch_size):
-    # 获取总长度
     n = len(lines)
     i = 0
     while 1:
@@ -132,16 +130,6 @@ if __name__ == "__main__":
     season_input = Input(shape=(12,))
     feats = backbone(img_input,season_input,HEIGHT,WIDTH)
     o = head(feats,NCLASSES, HEIGHT, WIDTH, down_sample_size,batch_size)
-    model = Model(inputs=[img_input,season_input],outputs= o)
-    # model.summary()
-    
-    log_dir = "logs/"
-    
-    # 获取model
-    img_input = Input(shape=(HEIGHT,WIDTH , 3 ))
-    season_input = Input(shape=(12,))
-    feats = backbone(img_input,season_input,HEIGHT,WIDTH)
-    o = head(feats,NCLASSES, HEIGHT, WIDTH, down_sample_size)
     model = Model(inputs=[img_input,season_input],outputs= o)
     # model.summary()
     
