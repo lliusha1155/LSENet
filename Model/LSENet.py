@@ -23,14 +23,19 @@ def conv_block_1(input_tensor,filters):
     x = Activation('relu')(x)
     return x
 
+def conv_T_block(x, filters, strides=(2,2), padding='same'):
+    x = Conv2DTranspose(filters, (3, 3), strides=strides, padding=padding)(x)
+    x = BatchNormalization()(x)
+    x = Activation('relu')(x)
+    return x
+
 def location_attention(input_tensor,in_channel,n_classes, input_height, input_width, down_sample_size,batch_size):
     a = AveragePooling2D(pool_size=(down_sample_size, down_sample_size))(input_tensor)
     
     a = conv_block_1(a,32)
     #a = Dropout(rate = 0.1)(a)
     
-    #Lcation encoding
-    #a = coor_cat(input_height//down_sample_size, input_width//down_sample_size,batch_size)(a)
+    #a = coor_cat(input_height//down_sample_size, input_width//down_sample_size)(a)
     a = positionalencoding2d(input_height//down_sample_size, input_width//down_sample_size,batch_size)(a)
     
     a = conv_block_1(a,64) 
@@ -38,8 +43,7 @@ def location_attention(input_tensor,in_channel,n_classes, input_height, input_wi
     a = Conv2D( n_classes , (1, 1),padding='same',name='pos_attention_feature_num')(a)
     
     a = Activation('sigmoid', name='pos_attention_down')(a)
-    
-    #bilinear interpolation
+   
     a = UpSampling2D(size = (down_sample_size, down_sample_size), interpolation='bilinear', name='pos_attention')(a)
     
     return a
@@ -50,7 +54,7 @@ class channel_wise_multiply(Layer):
         
     def call(self, input_tensor):
         o, s = input_tensor
-        #get the shape
+        #先取出形状信息，一会用
         self.height = o.shape[1]
         self.width = o.shape[2]
         self.channel = o.shape[-1]
@@ -82,7 +86,7 @@ def backbone_encoder(input_tensor, season_feature, input_height=352 ,  input_wid
 
     #img_input = Input(shape=(input_height,input_width , 3 ))
 
-    # 352,352,3 -> 176,176,64
+    # 352,288,3 -> 176,144,64
     x = conv_block(input_tensor,64)
     x = conv_block(x, 64)
     a = channel_supervision_unit([x, input_tensor], season_feature, 64)
@@ -91,7 +95,7 @@ def backbone_encoder(input_tensor, season_feature, input_height=352 ,  input_wid
     x = MaxPooling2D((2, 2), strides=(2, 2))(x)
     
 
-    # 176,176,64 -> 88,88,128
+    # 176,144,64 -> 88,72,128
     ori = x
     x = conv_block(x, 128)
     x = conv_block(x, 128)
@@ -100,7 +104,7 @@ def backbone_encoder(input_tensor, season_feature, input_height=352 ,  input_wid
     f2 = x
     x = MaxPooling2D((2, 2), strides=(2, 2))(x)
 
-    # 88,88,128 -> 44,44,256
+    # 88,72,128 -> 44,36,256
     ori = x
     x = conv_block(x, 256)
     x = conv_block(x, 256)
@@ -109,7 +113,7 @@ def backbone_encoder(input_tensor, season_feature, input_height=352 ,  input_wid
     f3 = x
     x = MaxPooling2D((2, 2), strides=(2, 2))(x)
 
-    # 44,44,256 -> 22,22,512
+    # 44,36,256 -> 22,18,512
     ori = x
     x = conv_block(x, 512)
     x = conv_block(x, 512)
@@ -118,7 +122,7 @@ def backbone_encoder(input_tensor, season_feature, input_height=352 ,  input_wid
     f4 = x 
     x = MaxPooling2D((2, 2), strides=(2, 2))(x)
 
-    # 22,22,512 -> 22,22,1024
+    # 22,18,512 -> 11,9,512
     ori = x
     x = conv_block(x, 1024)
     x = conv_block(x, 1024)
@@ -130,11 +134,14 @@ def backbone_encoder(input_tensor, season_feature, input_height=352 ,  input_wid
 
 def backbone_decoder(f,season_feature):
     
+    # 22,18,512
     f1, f2, f3, f4, f5 = f
+    
+    # 44,36,256
     p5 = f5
     
-    # 22,22,512+1024 -> 44,44,512
-    o = UpSampling2D((2,2))(p5)
+#     o = UpSampling2D((2,2),interpolation='bilinear')(p5)
+    o = conv_T_block(p5,512)
     o = concatenate([o,f4],axis=-1)
     ori = o
     o = conv_block(o, 512)
@@ -142,8 +149,9 @@ def backbone_decoder(f,season_feature):
     a = channel_supervision_unit([o, ori], season_feature, 512)
     p4 = Add()([a,o])
   
-    # 44,44,512+256 -> 88,88,256
-    o = UpSampling2D( (2,2))(p4)
+    # 88,72,128
+#     o = UpSampling2D( (2,2),interpolation='bilinear')(p4)
+    o = conv_T_block(p4,256)
     o = concatenate([o,f3],axis=-1)
     ori = o
     o = conv_block(o, 256)
@@ -151,8 +159,9 @@ def backbone_decoder(f,season_feature):
     a = channel_supervision_unit([o, ori], season_feature, 256)
     p3 = Add()([a,o])
     
-    # 88,88,256+128 -> 176,176,128
-    o = UpSampling2D( (2,2))(p3)
+    # 176,144,64
+#     o = UpSampling2D( (2,2),interpolation='bilinear')(p3)
+    o = conv_T_block(p3,128)
     o =  concatenate([o,f2],axis=-1)
     ori = o
     o = conv_block(o, 128)
@@ -160,8 +169,9 @@ def backbone_decoder(f,season_feature):
     a = channel_supervision_unit([o, ori], season_feature, 128)
     p2 = Add()([a,o])
 
-    # 176,176,128+64 -> 352,352,64
-    o = UpSampling2D( (2,2))(p2)
+    # 352,288,10
+#     o = UpSampling2D( (2,2),interpolation='bilinear')(p2)
+    o = conv_T_block(p2,64)
     o = concatenate([o,f1],axis=-1)
     ori = o
     o = conv_block(o, 64)
@@ -174,15 +184,15 @@ def backbone_decoder(f,season_feature):
 def backbone( inputs, season_feature, input_height=352, input_width=288 ):
     
     feat = backbone_encoder(input_tensor = inputs, season_feature = season_feature, input_height=input_height, input_width=input_width )
+
     o = backbone_decoder(feat, season_feature)
     
     return o
 
 class coor_cat(Layer):
-    def __init__(self,area_num_h,area_num_w,batch_size):
+    def __init__(self,area_num_h,area_num_w):
         self.area_num_h = area_num_h
         self.area_num_w = area_num_w
-        self.batch_size = batch_size
         super(coor_cat, self).__init__()
         
     def call(self, input_tensor):
@@ -199,8 +209,8 @@ class coor_cat(Layer):
         
         x = x[tf.newaxis, :, :, tf.newaxis]   # [1, h, w, 1]
         y = y[tf.newaxis, :, :, tf.newaxis]   # [1, h, w, 1]
-        x = tf.tile(x, [self.batch_size, 1, 1, 1])   # [N, h, w, 1]
-        y = tf.tile(y, [self.batch_size, 1, 1, 1])   # [N, h, w, 1]
+        x = tf.tile(x, [batch_size, 1, 1, 1])   # [N, h, w, 1]
+        y = tf.tile(y, [batch_size, 1, 1, 1])   # [N, h, w, 1]
         
         res = tf.concat([input_tensor, x, y], axis=-1)   # [N, h, w, c+2]
         return res
@@ -220,6 +230,7 @@ class positionalencoding2d(Layer):
         d_model = int(self.channel_num)
         height = self.height
         width = self.width
+        batch_size = self.batch_size
         if d_model % 4 != 0:
             raise ValueError("Cannot use sin/cos positional encoding with odd dimension (got dim={:d})".format(d_model))
         pe = np.zeros([height, width, d_model])
@@ -235,8 +246,7 @@ class positionalencoding2d(Layer):
         pe[:, :, d_model::2] = np.expand_dims(np.sin(pos_h * div_term), axis=1).repeat(width,axis = 1)
         pe[ :, :, d_model + 1::2] = np.expand_dims(np.cos(pos_h * div_term), axis=1).repeat(width,axis =1)
     
-        #add a dimension for sum operation
-        pe = np.expand_dims(pe,axis=0).repeat(self.batch_size,axis=0)
+        pe = np.expand_dims(pe,axis=0).repeat(batch_size,axis=0)
         
         res = tf.add(input_tensor,tf.convert_to_tensor(pe, np.float32))
         return res
@@ -244,7 +254,7 @@ class positionalencoding2d(Layer):
     def compute_output_shape(self, input_shape):
         return (None,input_shape[1], input_shape[2], input_shape[-1] )
     
-def head(feats, n_classes, input_height, input_width, down_sample_size, batch_size):
+def head(feats, n_classes, input_height, input_width, down_sample_size,batch_size):
     p1, p2, p3, p4, p5 = feats
     
     o = Conv2D( n_classes, (1, 1),padding='same',name='1')(p1)
